@@ -13,11 +13,11 @@ st.set_page_config(
 
 # ---------------- BASE PATH ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(BASE_DIR, "Models")
+MODEL_DIR = os.path.join(BASE_DIR, "models")
 
 # ---------------- SAFETY CHECK ----------------
 if not os.path.exists(MODEL_DIR):
-    st.error("Models folder not found!")
+    st.error("models folder not found!")
     st.stop()
 
 # ---------------- MODEL LOADING (SAFE + FAST) ----------------
@@ -43,7 +43,7 @@ except Exception as e:
 
 # ---------------- SIDEBAR MENU ----------------
 menu = st.sidebar.radio(
-    "Choose Model",
+    "Choose model",
     ["Home", "ANN Diabetes", "CNN Pneumonia", "RNN/LSTM/GRU Time Series"],
     key="main_menu"
 )
