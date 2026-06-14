@@ -1,7 +1,5 @@
-streamlit
-tensorflow
-pandas
+streamlit 
+tensorflow-cpu
+scikit-learn
+pandas 
 numpy
-plotly
-pillow
-reportlab
