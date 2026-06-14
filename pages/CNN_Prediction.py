@@ -1,186 +1,129 @@
 import streamlit as st
-import tensorflow as tf
 import numpy as np
-from PIL import Image
 import os
+from tensorflow.keras.models import load_model
+from PIL import Image
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="AI Pneumonia Detection System",
-    page_icon="🫁",
+    page_title="AI Healthcare Suite",
+    page_icon="🏥",
     layout="wide"
 )
 
-# ---------------- LOAD MODEL ----------------
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "pneumonia_cnn_model.h5")
+# ---------------- BASE PATH ----------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(BASE_DIR, "Models")
 
-if not os.path.exists(MODEL_PATH):
-    st.error(f"Model file not found:\n{MODEL_PATH}")
+# ---------------- SAFETY CHECK ----------------
+if not os.path.exists(MODEL_DIR):
+    st.error("Models folder not found!")
     st.stop()
+
+# ---------------- MODEL LOADING (SAFE + FAST) ----------------
+@st.cache_resource
+def load_ann():
+    return load_model(os.path.join(MODEL_DIR, "ann_model.keras"))
+
+@st.cache_resource
+def load_cnn():
+    return load_model(os.path.join(MODEL_DIR, "cnn_pneumonia.h5"))
+
+@st.cache_resource
+def load_lstm():
+    return load_model(os.path.join(MODEL_DIR, "lstm_model.keras"))
 
 try:
-    model = tf.keras.models.load_model(MODEL_PATH)
+    ann_model = load_ann()
+    cnn_model = load_cnn()
+    lstm_model = load_lstm()
 except Exception as e:
-    st.error(f"Error loading model: {e}")
+    st.error(f"Model loading failed: {e}")
     st.stop()
 
-# ---------------- TITLE ----------------
-st.title("🫁 AI Pneumonia Detection System")
-
-st.markdown("""
-### Deep Learning Based Chest X-Ray Analysis
-
-Upload a Chest X-Ray image and let the CNN model detect possible pneumonia patterns.
-""")
-
-st.divider()
-
-# ---------------- METRICS ----------------
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.metric("Accuracy", "95.1%")
-
-with col2:
-    st.metric("Precision", "94.3%")
-
-with col3:
-    st.metric("Recall", "93.8%")
-
-st.divider()
-
-# ---------------- FILE UPLOAD ----------------
-uploaded_file = st.file_uploader(
-    "📤 Upload Chest X-Ray Image",
-    type=["jpg", "jpeg", "png"]
+# ---------------- SIDEBAR MENU ----------------
+menu = st.sidebar.radio(
+    "Choose Model",
+    ["Home", "ANN Diabetes", "CNN Pneumonia", "RNN/LSTM/GRU Time Series"],
+    key="main_menu"
 )
 
-if uploaded_file is not None:
+# ---------------- HOME ----------------
+if menu == "Home":
+    st.title("🏥 AI Healthcare Suite")
+    st.write("ANN + CNN + RNN/LSTM/GRU Integrated System")
 
-    image = Image.open(uploaded_file).convert("RGB")
+# ---------------- ANN ----------------
+elif menu == "ANN Diabetes":
 
-    left, right = st.columns(2)
+    st.header("🩺 Diabetes Prediction (ANN)")
 
-    with left:
-        st.image(
-            image,
-            caption="Uploaded X-Ray",
-            use_container_width=True
-        )
+    pregnancies = st.number_input("Pregnancies", 0, 20, key="p1")
+    glucose = st.number_input("Glucose", 0, 300, key="p2")
+    bp = st.number_input("Blood Pressure", 0, 200, key="p3")
+    skin = st.number_input("Skin Thickness", 0, 100, key="p4")
+    insulin = st.number_input("Insulin", 0, 900, key="p5")
+    bmi = st.number_input("BMI", 0.0, 70.0, key="p6")
+    dpf = st.number_input("Diabetes Pedigree", 0.0, 3.0, key="p7")
+    age = st.number_input("Age", 0, 120, key="p8")
 
-    with right:
-        st.subheader("📋 Model Information")
+    if st.button("Predict Diabetes"):
+        try:
+            input_data = np.array([[pregnancies, glucose, bp, skin,
+                                     insulin, bmi, dpf, age]])
 
-        st.info("""
-        Classes:
-        
-        • Normal
-        
-        • Pneumonia
+            prediction = ann_model.predict(input_data)[0][0]
 
-        Architecture:
-        
-        • CNN Layers
-        
-        • MaxPooling
-        
-        • Dense Layers
-        
-        • Sigmoid Output
-        """)
+            if prediction > 0.5:
+                st.error("⚠️ High Risk of Diabetes")
+            else:
+                st.success("✅ Low Risk of Diabetes")
 
-    st.divider()
+        except Exception as e:
+            st.error(f"Prediction error: {e}")
 
-    # ---------------- PREDICTION BUTTON ----------------
-    if st.button("🔍 Analyze X-Ray", use_container_width=True):
+# ---------------- CNN ----------------
+elif menu == "CNN Pneumonia":
 
-        # Image Preprocessing
-        img = image.resize((150, 150))
-        img = np.array(img)
-        img = img / 255.0
-        img = np.expand_dims(img, axis=0)
+    st.header("🫁 Pneumonia Detection (CNN)")
 
-        # Prediction
-        prediction = model.predict(img, verbose=0)
+    file = st.file_uploader("Upload Chest X-ray", type=["jpg", "png", "jpeg"])
 
-        pneumonia_prob = float(prediction[0][0])
-        normal_prob = 1 - pneumonia_prob
+    if file is not None:
+        try:
+            img = Image.open(file).convert("RGB")
+            st.image(img, caption="Uploaded Image", use_container_width=True)
 
-        st.subheader("📊 Prediction Results")
+            img = img.resize((224, 224))
+            img = np.array(img) / 255.0
+            img = np.expand_dims(img, axis=0)
 
-        c1, c2 = st.columns(2)
+            prediction = cnn_model.predict(img)[0][0]
 
-        with c1:
-            st.metric(
-                "Normal Probability",
-                f"{normal_prob*100:.2f}%"
-            )
+            if prediction > 0.5:
+                st.error("🫁 Pneumonia Detected")
+            else:
+                st.success("😊 Normal Lung")
 
-        with c2:
-            st.metric(
-                "Pneumonia Probability",
-                f"{pneumonia_prob*100:.2f}%"
-            )
+        except Exception as e:
+            st.error(f"Image processing error: {e}")
 
-        confidence = max(normal_prob, pneumonia_prob)
+# ---------------- LSTM / RNN ----------------
+elif menu == "RNN/LSTM/GRU Time Series":
 
-        st.metric(
-            "Model Confidence",
-            f"{confidence*100:.2f}%"
-        )
+    st.header("📈 Time Series Prediction (LSTM/GRU)")
 
-        st.progress(int(confidence * 100))
+    values = st.text_area("Enter comma-separated values", "10,20,30,40,50")
 
-        st.divider()
+    if st.button("Predict Next Value"):
+        try:
+            data = [float(i.strip()) for i in values.split(",")]
 
-        # ---------------- CHART ----------------
-        st.subheader("📈 Probability Comparison")
+            data = np.array(data).reshape(1, len(data), 1)
 
-        chart_data = {
-            "Normal": [normal_prob],
-            "Pneumonia": [pneumonia_prob]
-        }
+            prediction = lstm_model.predict(data)[0][0]
 
-        st.bar_chart(chart_data)
+            st.success(f"📊 Next Value: {prediction:.2f}")
 
-        st.divider()
-
-        # ---------------- RESULT ----------------
-        if pneumonia_prob > 0.5:
-
-            st.error("🔴 PNEUMONIA DETECTED")
-
-            st.warning("""
-            The uploaded X-Ray contains patterns
-            commonly associated with pneumonia.
-
-            Please consult a healthcare professional
-            for further evaluation.
-            """)
-
-        else:
-
-            st.success("🟢 NORMAL CHEST X-RAY")
-
-            st.info("""
-            No significant pneumonia indicators
-            detected by the model.
-            """)
-
-        st.divider()
-
-        # ---------------- REPORT ----------------
-        st.subheader("📄 Automated Medical Summary")
-
-        st.write("• CNN model analyzed the uploaded chest X-Ray.")
-        st.write(f"• Normal Probability: {normal_prob*100:.2f}%")
-        st.write(f"• Pneumonia Probability: {pneumonia_prob*100:.2f}%")
-        st.write(f"• Confidence Score: {confidence*100:.2f}%")
-
-        if pneumonia_prob > 0.5:
-            st.write("• Final Classification: Pneumonia")
-        else:
-            st.write("• Final Classification: Normal")
-
-        st.success("✅ Analysis Completed Successfully")
+        except Exception as e:
+            st.error(f"Input error: {e}")
